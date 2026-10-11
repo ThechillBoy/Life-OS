@@ -2,7 +2,7 @@
 
 A buildless, local-first productivity app. HTML, CSS and vanilla JavaScript ES modules; no backend, runtime dependencies, accounts, analytics or external APIs.
 
-![LifeOS workspace preview](screenshots/lifeos-workspace-2026-10-11.png)
+![LifeOS dashboard in dark mode](screenshots/dashboard-dark.png)
 
 ## Run locally
 
