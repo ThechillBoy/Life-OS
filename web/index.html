@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="A calmer place for your tasks, habits, notes, money and focus. LifeOS is your private, local-first productivity space.">
+    <meta name="theme-color" content="#f7f8f5">
+    <title>LifeOS — A little more intentional</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+    <script src="js/theme.js"></script>
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/layouts.css">
+    <script type="module" src="js/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+        <a href="#dashboard" class="brand" aria-label="LifeOS dashboard"><img src="assets/logo.svg" width="36" height="36" alt=""><span>Life<span class="brand-os">OS</span><small>A LITTLE MORE INTENTIONAL</small></span></a>
+        <p class="nav-label">YOUR WORKSPACE</p>
+        <nav id="navigation" aria-label="Workspace"></nav>
+        <div class="sidebar-footer">
+          <a class="nav-link" href="#settings" id="settings-link"></a>
+          <div class="local-card"><span class="status-dot"></span><strong>Your space. Your data.</strong><p>Stored on this device.<br>No accounts. No noise.</p></div>
+          <span class="version">LifeOS <span>v1.0</span></span>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb"><button type="button" class="icon-button mobile-menu" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"></button><span>Workspace</span><span class="crumb-divider">/</span><strong id="current-section">Overview</strong></div>
+          <div class="topbar-actions"><a href="#focus" id="timer-chip" class="timer-chip" hidden></a><span class="private-badge"><span class="status-dot"></span> Local & private</span><button type="button" class="icon-button" id="theme-toggle" aria-label="Switch color theme"></button></div>
+        </header>
+        <main id="main" tabindex="-1" aria-busy="true"><div class="loading-state">Preparing your space…</div></main>
+        <footer class="page-footer"><span>A little progress, every day.</span><span>Made for a more intentional life.</span></footer>
+      </div>
+    </div>
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <div id="error-notice" class="error-notice" role="alert" hidden></div>
+    <noscript><p class="noscript">LifeOS needs JavaScript to save and display your data. Please enable JavaScript for this site.</p></noscript>
+  </body>
+</html>

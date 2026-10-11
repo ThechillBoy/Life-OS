@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { localDate, validDate, shiftDay, weekDays, habitStreak, tasksForView } from '../web/js/core/dates.js';
+import { parseMoney, formatMoney, moneyInput, expenseTotal, monthlyExpenses, defaults, STORES } from '../web/js/core/models.js';
+import { idleTimer, transitionTimer, remainingTime, clockText, DURATION } from '../web/js/core/timer.js';
+import { createBackup, validateBackup } from '../web/js/core/backup.js';
+
+const iso = '2026-10-10T10:00:00.000Z';
+const base = id => ({ id, createdAt: iso, updatedAt: iso });
+function dataFixture() {
+  const data = Object.fromEntries(STORES.map(s => [s, []]));
+  data.settings = [{ ...defaults }, idleTimer()];
+  data.tasks = [{ ...base('task-1'), title: 'A task', completed: false, dueDate: null }];
+  data.habits = [{ ...base('habit-1'), title: 'Read' }];
+  data.checkins = [{ id: 'habit-1:2026-10-10', habitId: 'habit-1', date: '2026-10-10' }];
+  data.notes = [{ ...base('note-1'), title: 'Note', body: '<script>alert(1)</script>' }];
+  data.expenses = [{ ...base('expense-1'), amount: 110, date: '2026-10-10', currency: 'USD', category: 'Other', description: '' }];
+  data.focusSessions = [{ id: 'session-1', completedAt: iso, durationMinutes: 25 }];
+  return data;
+}
+const backupFixture = () => createBackup(dataFixture(), Date.parse(iso));
+test('local dates use calendar components rather than UTC strings', () => assert.equal(localDate(new Date(2026, 9, 10, 0, 1)), '2026-10-10'));
+test('date validation rejects impossible dates and accepts leap days', () => { assert.equal(validDate('2024-02-29'), true); for (const date of ['2026-02-29', '2026-04-31', '2026-13-01', '2026-00-01', '2026-1-1', '1999-01-01']) assert.equal(validDate(date), false); });
+test('calendar arithmetic crosses month, year and daylight-saving boundaries', () => { assert.equal(shiftDay('2026-01-01', -1), '2025-12-31'); assert.equal(shiftDay('2024-03-01', -1), '2024-02-29'); assert.equal(shiftDay('2026-03-08', 1), '2026-03-09'); });
+test('seven-day history ends at today', () => assert.deepEqual(weekDays('2026-01-03'), ['2025-12-28', '2025-12-29', '2025-12-30', '2025-12-31', '2026-01-01', '2026-01-02', '2026-01-03']));
+test('habit streak survives today being unfinished, then resets after a missed day', () => { const rows = ['2026-10-08', '2026-10-09'].map(date => ({ habitId: 'h', date })); assert.equal(habitStreak('h', rows, '2026-10-10'), 2); assert.equal(habitStreak('h', rows, '2026-10-11'), 0); });
+test('habit streak isolates habits and handles duplicate inputs', () => assert.equal(habitStreak('h', [{ habitId: 'other', date: '2026-10-09' }, { habitId: 'h', date: '2026-10-10' }, { habitId: 'h', date: '2026-10-10' }], '2026-10-10'), 1));
+test('task views keep overdue and undated tasks in Today', () => { const rows = [null, '2026-10-09', '2026-10-10', '2026-10-11'].map((dueDate, i) => ({ ...base(`t${i}`), dueDate, completed: false })); rows.push({ ...base('done'), completed: true, dueDate: null }); assert.equal(tasksForView(rows, 'today', '2026-10-10').length, 3); assert.equal(tasksForView(rows, 'upcoming', '2026-10-10')[0].id, 't3'); assert.equal(tasksForView(rows, 'completed', '2026-10-10')[0].id, 'done'); });
+test('expense amounts use exact integer minor units', () => { assert.equal(parseMoney('0.10', 'USD') + parseMoney('0.20', 'USD'), 30); assert.equal(parseMoney('1234.56', 'USD'), 123456); assert.equal(moneyInput(123456, 'USD'), '1234.56'); assert.match(formatMoney(30, 'USD'), /0\.30/); });
+test('zero-decimal currencies reject fractions', () => { assert.equal(parseMoney('1250', 'JPY'), 1250); assert.throws(() => parseMoney('12.50', 'JPY')); });
+test('expense parser rejects negative, nonfinite, excessive and ambiguous amounts', () => { for (const input of ['-1', '0', '1.001', '1e3', 'NaN', 'Infinity', '1,000', '1000000000000000']) assert.throws(() => parseMoney(input, 'USD')); });
+test('monthly expense totals exclude other months', () => { const rows = [{ date: '2026-10-10', amount: 10, createdAt: iso }, { date: '2026-09-10', amount: 90, createdAt: iso }, { date: '2026-10-01', amount: 20, createdAt: iso }]; assert.equal(expenseTotal(monthlyExpenses(rows, '2026-10')), 30); });
+test('timer pause/resume uses timestamps rather than interval ticks', () => { let timer = transitionTimer(idleTimer(), 'start', 1000, 's'); assert.equal(remainingTime(timer, 61000), DURATION.focus - 60000); timer = transitionTimer(timer, 'pause', 61000, 'unused'); assert.equal(remainingTime(timer, 999999), DURATION.focus - 60000); timer = transitionTimer(timer, 'start', 100000, 'unused'); assert.equal(timer.sessionId, 's'); assert.equal(timer.endsAt, 1540000); });
+test('expired timers clamp to zero and reset changes no completed history', () => { const timer = transitionTimer(idleTimer(), 'start', 0, 's'); assert.equal(remainingTime(timer, 9999999), 0); assert.deepEqual(transitionTimer(timer, 'reset'), idleTimer()); assert.equal(transitionTimer(timer, 'break').remainingMs, DURATION.break); });
+test('clock display rounds up and does not show negative seconds', () => { assert.equal(clockText(1499999), '25:00'); assert.equal(clockText(60001), '01:01'); assert.equal(clockText(-1), '00:00'); });
+test('backup roundtrip retains records and plain text', () => assert.deepEqual(validateBackup(JSON.parse(JSON.stringify(backupFixture()))), dataFixture()));
+test('backup exports an active timer as paused', () => { const data = dataFixture(); data.settings[1] = transitionTimer(idleTimer(), 'start', Date.parse(iso), 'active'); const backup = createBackup(data, Date.parse(iso) + 60000); const timer = validateBackup(backup).settings[1]; assert.equal(timer.status, 'paused'); assert.equal(timer.remainingMs, 1440000); assert.equal(timer.endsAt, null); });
+test('backup rejects wrong versions, incomplete stores and duplicate IDs', () => { const backup = backupFixture(); assert.throws(() => validateBackup({ ...backup, version: 2 })); const missing = structuredClone(backup); delete missing.data.tasks; assert.throws(() => validateBackup(missing)); backup.data.tasks.push(backup.data.tasks[0]); assert.throws(() => validateBackup(backup)); });
+test('backup rejects orphaned and mismatched check-ins', () => { const backup = backupFixture(); backup.data.checkins[0].habitId = 'missing'; assert.throws(() => validateBackup(backup)); const other = backupFixture(); other.data.checkins[0].id = 'wrong'; assert.throws(() => validateBackup(other)); });
+test('backup rejects mixed currency and unsafe totals', () => { const backup = backupFixture(); backup.data.expenses[0].currency = 'EUR'; assert.throws(() => validateBackup(backup)); const bad = backupFixture(); bad.data.expenses[0].amount = 1.5; assert.throws(() => validateBackup(bad)); });
+test('backup rejects invalid dates and timer state before restore', () => { const backup = backupFixture(); backup.data.expenses[0].date = '2026-02-30'; assert.throws(() => validateBackup(backup)); const bad = backupFixture(); bad.data.settings[1].status = 'running'; assert.throws(() => validateBackup(bad)); });
+test('backup rejects active timer IDs already recorded as completed', () => { const backup = backupFixture(); backup.data.settings[1] = { ...idleTimer(), status: 'paused', remainingMs: 1000, sessionId: 'session-1' }; assert.throws(() => validateBackup(backup)); });
+test('backup only reconstructs known fields', () => { const backup = backupFixture(); backup.data.notes[0].untrustedExtra = { malicious: true }; const restored = validateBackup(backup); assert.equal('untrustedExtra' in restored.notes[0], false); });
